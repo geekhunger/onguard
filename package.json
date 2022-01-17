@@ -1,0 +1,26 @@
+{
+    "private": false,
+    "version": "0.0.1",
+    "name": "onguard",
+    "description": "define and check your own var-types",
+    "author": "geekhunger <hallo@geekhunger.de>",
+    "license": "MIT",
+    "main": "index.js",
+    "homepage": "https://github.com/geekhunger/onguard#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/geekhunger/onguard.git"
+    },
+    "bugs": {
+        "url": "https://github.com/geekhunger/onguard/issues"
+    },
+    "keywords": [
+        "ip",
+        "defend",
+        "ban",
+        "attack",
+        "blacklist"
+    ],
+    "dependencies": {
+    }
+}
