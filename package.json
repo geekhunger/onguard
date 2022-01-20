@@ -1,8 +1,8 @@
 {
     "private": false,
-    "version": "0.0.1",
+    "version": "0.0.2",
     "name": "onguard",
-    "description": "define and check your own var-types",
+    "description": "RegExp attack-defense and IP-blacklisting for ExpressJS and HarperDB",
     "author": "geekhunger <hallo@geekhunger.de>",
     "license": "MIT",
     "main": "index.js",
@@ -18,8 +18,20 @@
         "ip",
         "defend",
         "ban",
+        "ip banning",
         "attack",
-        "blacklist"
+        "defense",
+        "badrequest",
+        "forbidden",
+        "403",
+        "401",
+        "ddos",
+        "blacklist",
+        "defense",
+        "guad",
+        "gate",
+        "gatekeeper",
+        "gate keeper"
     ],
     "dependencies": {
         "node-harperdb": "^0.6.6",
