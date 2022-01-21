@@ -1,6 +1,20 @@
 const {HarperDB} = require("node-harperdb")
 const {check: type, assert} = require("type-approve")
 
+const trimDecimals = function(number, length) {
+    const expression = new RegExp('^-?\\d+(?:\.\\d{0,' + (length || -1) + '})?')
+    return number.toString().match(expression)[0]
+}
+
+const ordinalCount = function(i) {
+    let j = i % 10
+    let k = i % 100
+    if(j == 1 && k != 11) return i + "st"
+    if(j == 2 && k != 12) return i + "nd"
+    if(j == 3 && k != 13) return i + "rd"
+    return i + "th"
+}
+
 
 module.exports = (...settings) => config.apply(module.exports, settings)
 module.exports.defend = (...params) => middleware.apply(module.exports, params)
@@ -36,7 +50,7 @@ const config = function(settings) {
             settings.harperdb.table ?? "blacklist"
         )
     }
-    this.attempts = settings.attempts ?? 1
+    this.attempts = Math.max(1, settings.attempts ?? 3) // value with lower-clamp!
     this.decorator = "attack" // express request decorator
     return this.defend
 }
@@ -56,7 +70,6 @@ const middleware = async function(request, response, next) {
             type({nil: request[this.settings.decorator]}),
             "Request decorator already occupied!"
         )
-
         for(const [name, attack] of this.attacks.entries()) {
             const patterns = attack.match(request.originalUrl)
             if(patterns.length > 0) {
@@ -65,12 +78,33 @@ const middleware = async function(request, response, next) {
                 break
             }
         }
-        
-        let blacklisted = await db.select({ip: request.ip})
+    } catch(error) {
+        response.status(500) // Internal Server Error
+        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error}`)
+    }
+    try {
+        let suspects = await db.select({ip: request.ip})
         const evil = !type({nil: request[this.settings.decorator]})
 
-        if(evil && blacklisted.length === 0) {
-            blacklisted.push({
+        if(suspects.length > 1) {
+            // Merge duplicate records of the same client...
+            // NOTE: Normally, there's only one single record inside the blacklist, but we are prepared to handle duplicate records too!
+            suspects = {
+                ip: request.ip,
+                attempts: suspects
+                    .map(entry => entry.attempts || 0)
+                    .reduce((sum, count) => sum + count, 0),
+                requests: suspects
+                    .map(entry => entry.requests) // array of objects
+                    .flat(1),
+                attacks: suspects
+                    .map(entry => entry.attacks) // array of regex patterns
+                    .flat(1)
+            }
+        }
+
+        if(suspects.length === 0 && evil) {
+            suspects.push({ // prepare new entry for the database
                 ip: request.ip,
                 attempts: 0,
                 requests: [],
@@ -78,35 +112,48 @@ const middleware = async function(request, response, next) {
             })
         }
 
-        for(let id = 0; id < blacklisted.length; id++) { // NOTE: Normally, there's only a single record inside the blacklist, but we are prepared to handle duplicate records too!
-            let suspect = blacklisted[id]
-            suspect.attempts++
-            suspect.requests.push({
+        if(suspects.length === 1) {
+            let client = suspects[0]
+            client.attempts++
+            client.requests.push({
+                intent: evil ? "bad" : "good",
                 method: request.method,
                 url: request.originalUrl,
                 headers: request.headers,
                 body: request.body
             })
-            suspect.attacks.push(
-                request[this.settings.decorator]
+            client.attacks.push(
+                request[this.settings.decorator] // object with attack name and attack patterns that match the request.originalUrl
             )
-        }
+            const transaction = await db.upsert(client)
 
-        if(blacklisted.length > 0) { // evil suspects are included in blacklist
-            await db.upsert(blacklisted)
-            const attempts = blacklisted
-                .map(elem => elem.attempts)
-                .reduce((prev, curr) => (prev || 0) + (curr || 0), 0)
-            const error = [
-                `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`,
-                `IP ${request.ip} has been blocked`,
-                attempts > this.attempts ? `after exeeding ${attempts} attempts!` : "!"
+            let notification = [
+                `Detected suspicious request from ${request.ip}, with ${client.requests[client.requests.length].intent} intent.`,
+                `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`
             ]
-            return next(error.join(" "))
+            if(client.attempts >= this.attempts) {
+                notification.push(
+                    `Client IP ${request.ip} is a well-known suspect and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
+                )
+            } else if(client.attempts > 1) {
+                notification.push(
+                    `Client IP ${request.ip} a known suspect and has been blocked for the ${ordinalCount(client.attempts)} time.`
+                )
+                if(client.attempts > 0) {
+                    notification.push(
+                        `(${this.attempts - client.attempts} attempts left until client becomes blacklisted.)`
+                    )
+                }
+            }
+            notification.push(
+                `Database record ${transaction.upserted_hashes[0]} has been updated.`
+            )
+
+            return next(notification.join("\n"))
         }
     } catch(error) {
         response.status(500) // Internal Server Error
-        return next(`Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected: ${error}`)
+        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error}`)
     }
     next()
 }
