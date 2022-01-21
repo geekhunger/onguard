@@ -11,25 +11,31 @@ module.exports.Pattern = require("./attack")
 const config = function(settings) {
     assert(
         type({object: settings})
-        && type({object: settings.harperdb})
-        && type({strings: [
-            settings.harperdb.instance,
-            settings.harperdb.auth,
-            settings.harperdb.schema,
-            settings.harperdb.table
-        ]})
+        && (settings.harperdb instanceof HarperDB || (
+            type({object: settings.harperdb})
+            && type({strings: [
+                settings.harperdb.instance,
+                settings.harperdb.auth,
+                settings.harperdb.schema,
+                settings.harperdb.table
+            ]})
+        ))
         && type(
             {nil: settings.attempts},
             {integer: settings.attempts}
         ),
         "Malformed configuration!"
     )
-    this.db = new HarperDB(
-        settings.harperdb.instance,
-        settings.harperdb.auth,
-        settings.harperdb.schema ?? "onguard",
-        settings.harperdb.table ?? "blacklist"
-    )
+    if(settings.harperdb instanceof HarperDB) {
+        this.db = settings.harperdb
+    } else {
+        this.db = new HarperDB(
+            settings.harperdb.instance,
+            settings.harperdb.auth,
+            settings.harperdb.schema ?? "onguard",
+            settings.harperdb.table ?? "blacklist"
+        )
+    }
     this.attempts = settings.attempts ?? 1
     this.decorator = "attack" // express request decorator
     return this.defend
