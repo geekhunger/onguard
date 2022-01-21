@@ -1,6 +1,6 @@
 {
     "private": false,
-    "version": "0.0.3",
+    "version": "0.0.4",
     "name": "onguard",
     "description": "RegExp attack-defense & IP-blacklisting for ExpressJS and HarperDB",
     "author": "geekhunger <hallo@geekhunger.de>",
@@ -34,7 +34,7 @@
         "gate keeper"
     ],
     "dependencies": {
-        "node-harperdb": "^0.6.6",
-        "type-approve": "^0.2.5"
+        "node-harperdb": "^0.7.0",
+        "type-approve": "^0.2.8"
     }
 }
