@@ -68,27 +68,30 @@ const middleware = async function(request, response, next) {
                 integer: this.attempts,
                 string: this.decorator
             }),
-            "Missing settings!"
+            "Missing configuration!"
         )
         assert(
-            type({nil: request[this.settings.decorator]}),
+            type({nil: request[this.decorator]}),
             "Request decorator already occupied!"
         )
         for(const [name, attack] of this.attacks.entries()) {
             const patterns = attack.match(request.originalUrl)
             if(patterns.length > 0) {
-                request[this.settings.decorator] = {name, patterns} // express request decorator
+                request[this.decorator] = { // express request decorator
+                    name: name,
+                    patterns: patterns
+                }
                 response.status(403) // Access Forbidden
                 break
             }
         }
     } catch(error) {
         response.status(500) // Internal Server Error
-        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error}`)
+        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
     }
     try {
-        let suspects = await db.select({ip: request.ip})
-        const evil = !type({nil: request[this.settings.decorator]})
+        let suspects = await this.db.select({ip: request.ip})
+        const evil = !type({nil: request[this.decorator]})
 
         if(suspects.length > 1) {
             // Merge duplicate records of the same client...
@@ -120,7 +123,7 @@ const middleware = async function(request, response, next) {
             let client = suspects[0]
             client.attempts++ // TODO consider timing and if too frequent, then increase the count of attempts to blacklist faster
             client.requests.push({ // TODO discard duplicates!
-                intent: evil ? "bad" : "good",
+                intent: (evil ? "bad" : "good").toUpperCase(),
                 method: request.method,
                 url: request.originalUrl,
                 headers: request.headers,
@@ -128,17 +131,17 @@ const middleware = async function(request, response, next) {
                 timestamp: Date.now()
             })
             client.attacks.push( // TODO also without duplicates please!
-                request[this.settings.decorator] // object with attack name and attack patterns that match the request.originalUrl
+                request[this.decorator] // object with attack name and attack patterns that match the request.originalUrl
             )
-            const transaction = await db.upsert(client)
+            const transaction = await this.db.upsert(client)
 
             let notification = [
-                `Detected suspicious request from ${request.ip}, with ${client.requests[client.requests.length].intent} intent.`,
+                `Detected suspicious request from ${request.ip}, with ${client.requests[client.requests.length - 1].intent} intent.`,
                 `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`
             ]
             if(client.attempts >= this.attempts) {
                 notification.push(
-                    `Client IP ${request.ip} is a well-known suspect and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
+                    `Client IP ${request.ip} is a well-known blacklist candidate and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
                 )
             } else if(client.attempts > 1) {
                 notification.push(
@@ -146,7 +149,7 @@ const middleware = async function(request, response, next) {
                 )
                 if(client.attempts > 0) {
                     notification.push(
-                        `(${this.attempts - client.attempts} attempts left until client becomes blacklisted.)`
+                        `(${this.attempts - client.attempts} attempts left until client becomes blacklisted!)`
                     )
                 }
             }
@@ -158,7 +161,7 @@ const middleware = async function(request, response, next) {
         }
     } catch(error) {
         response.status(500) // Internal Server Error
-        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error}`)
+        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
     }
     next()
 }
