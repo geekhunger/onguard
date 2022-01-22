@@ -79,7 +79,7 @@ const middleware = async function(request, response, next) {
             if(patterns.length > 0) {
                 request[this.decorator] = { // express request decorator
                     name: name,
-                    patterns: patterns
+                    patterns: patterns.map(regex => regex.toString())
                 }
                 response.status(403) // Access Forbidden
                 break
