@@ -15,10 +15,9 @@
 </p>
 
 <p align="center">
-    Install this package from NPM: <code>npm i onguard</code>
+    Install this package from NPM: <code>npm i onguard</code><br>
+    🤍
 </p>
-
-<center>🤍</center>
 
 
 
