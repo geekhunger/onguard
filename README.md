@@ -42,6 +42,8 @@ app.use(require("onguard")({ // `app` is your express application or an express.
 
 > See [node-harperdb](https://www.npmjs.com/package/node-harperdb) for more information about the `harperdb: {}` config object (which is identical to this the constructor in the `HarperDB` class).
 
+**The above example is everything you need to use 'onguard' in your project!** But you can customize the settings further, if you want. You can also extend the preset rules for validating a reqests, by literal- or regex expressions. (We will explore this topic later.)
+
 You can also assign the configuration function from the `require` call to a variable and create your defense middleware later.
 
 ```js
@@ -214,4 +216,4 @@ Well, that's about it! Good requests go through normally. Bad requests throw an 
     - How do they work internally?
     - How do you define your own attack (RegExp `Pattern` rule)?
     - How do you override the `attacks` preset? (What about clearing all?)
-
+- How to add IP to blacklist manually?
