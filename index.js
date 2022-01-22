@@ -124,7 +124,8 @@ const middleware = async function(request, response, next) {
                 method: request.method,
                 url: request.originalUrl,
                 headers: request.headers,
-                body: request.body
+                body: request.body,
+                timestamp: Date.now()
             })
             client.attacks.push( // TODO also without duplicates please!
                 request[this.settings.decorator] // object with attack name and attack patterns that match the request.originalUrl
