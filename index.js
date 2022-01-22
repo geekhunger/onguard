@@ -54,7 +54,7 @@ const config = function(settings) {
             settings.harperdb.table ?? "malicious"
         )
     }
-    this.attempts = clamp(settings.attempts ?? 3, 1, Infinity)
+    this.attempts = clamp(settings.attempts ?? 10, 1, Infinity)
     this.decorator = "attack" // express request decorator
     return this.defend
 }
