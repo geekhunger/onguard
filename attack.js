@@ -31,7 +31,7 @@ module.exports = class Attack {
             paths.push(decodeURI(paths[0])) // guard decodeURI because it could throw an error
         } catch(_) {
         }
-        return this.patterns.filter(pattern => paths.some(pattern.test))
+        return this.patterns.filter(pattern => paths.some(pattern.test.bind(pattern)))
     }
 
     test(url) {
