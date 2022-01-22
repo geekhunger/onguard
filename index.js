@@ -1,6 +1,10 @@
 const {HarperDB} = require("node-harperdb")
 const {check: type, assert} = require("type-approve")
 
+const clamp = function(value, min = 0, max = 1) {
+    return Math.min(Math.max(value, min), max)
+}
+
 const trimDecimals = function(number, length) {
     const expression = new RegExp('^-?\\d+(?:\.\\d{0,' + (length || -1) + '})?')
     return number.toString().match(expression)[0]
@@ -47,10 +51,10 @@ const config = function(settings) {
             settings.harperdb.instance,
             settings.harperdb.auth,
             settings.harperdb.schema ?? "onguard",
-            settings.harperdb.table ?? "blacklist"
+            settings.harperdb.table ?? "malicious"
         )
     }
-    this.attempts = Math.max(1, settings.attempts ?? 3) // value with lower-clamp!
+    this.attempts = clamp(settings.attempts ?? 3, 1, Infinity)
     this.decorator = "attack" // express request decorator
     return this.defend
 }
@@ -114,15 +118,15 @@ const middleware = async function(request, response, next) {
 
         if(suspects.length === 1) {
             let client = suspects[0]
-            client.attempts++
-            client.requests.push({
+            client.attempts++ // TODO consider timing and if too frequent, then increase the count of attempts to blacklist faster
+            client.requests.push({ // TODO discard duplicates!
                 intent: evil ? "bad" : "good",
                 method: request.method,
                 url: request.originalUrl,
                 headers: request.headers,
                 body: request.body
             })
-            client.attacks.push(
+            client.attacks.push( // TODO also without duplicates please!
                 request[this.settings.decorator] // object with attack name and attack patterns that match the request.originalUrl
             )
             const transaction = await db.upsert(client)
