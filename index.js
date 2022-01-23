@@ -1,5 +1,7 @@
 const {HarperDB} = require("node-harperdb")
 const {check: type, assert} = require("type-approve")
+const fullurl = req => req.protocol + '://' + req.headers.host + req.originalUrl
+
 
 const clamp = function(value, min = 0, max = 1) {
     return Math.min(Math.max(value, min), max)
@@ -64,6 +66,8 @@ const middleware = async function(request, response, next) {
         "Request decorator already occupied!"
     )
 
+    const complete_url = fullurl(request)
+
     let violation = request[this.decorator] = { // add a new express request decorator
         intent: "GOOD" // have faith in humanity... xD
     }
@@ -78,7 +82,7 @@ const middleware = async function(request, response, next) {
             "Missing configuration!"
         )
         for(const [name, attack] of this.attacks.entries()) {
-            const patterns = attack.match(request.originalUrl)
+            const patterns = attack.match(complete_url)
             if(patterns.length > 0) {
                 violation.name = name
                 violation.patterns = patterns.map(regex => regex.toString())
@@ -89,7 +93,7 @@ const middleware = async function(request, response, next) {
         }
     } catch(error) {
         response.status(500) // 500 Internal Server Error
-        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
+        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
     }
 
     try {
@@ -124,7 +128,7 @@ const middleware = async function(request, response, next) {
         client.requests.push({
             intent: violation.intent,
             method: request.method,
-            url: request.originalUrl,
+            url: complete_url,
             headers: request.headers,
             body: request.body,
             timestamp: Date.now()
@@ -134,7 +138,7 @@ const middleware = async function(request, response, next) {
 
         let notification = [
             `Detected suspicious request from ${request.ip} with ${violation.intent} intent.`,
-            `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`
+            `Request to ${request.method.toUpperCase()} ${complete_url} has been rejected!`
         ]
 
         if(client.attempts >= this.attempts) {
@@ -159,6 +163,6 @@ const middleware = async function(request, response, next) {
 
     } catch(error) {
         response.status(500) // 500 Internal Server Error
-        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
+        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
     }
 }
