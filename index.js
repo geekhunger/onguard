@@ -33,9 +33,7 @@ const config = function(settings) {
             type({object: settings.harperdb})
             && type({strings: [
                 settings.harperdb.instance,
-                settings.harperdb.auth,
-                settings.harperdb.schema,
-                settings.harperdb.table
+                settings.harperdb.auth
             ]})
         ))
         && type(
