@@ -10,7 +10,7 @@ const trimDecimals = function(number, length) {
     return number.toString().match(expression)[0]
 }
 
-const ordinalCount = function(i) {
+const ordinalCount = function(i) { // 1st, 2nd, 3rd, 4th...
     let j = i % 10
     let k = i % 100
     if(j == 1 && k != 11) return i + "st"
@@ -20,7 +20,7 @@ const ordinalCount = function(i) {
 }
 
 
-module.exports = (...settings) => config.apply(module.exports, settings)
+module.exports = settings => config.call(module.exports, settings)
 module.exports.defend = (...params) => middleware.apply(module.exports, params)
 module.exports.attacks = require("./collection")
 module.exports.Pattern = require("./attack")
@@ -51,16 +51,25 @@ const config = function(settings) {
             settings.harperdb.instance,
             settings.harperdb.auth,
             settings.harperdb.schema ?? "onguard",
-            settings.harperdb.table ?? "malicious"
+            settings.harperdb.table ?? "watchlist"
         )
     }
     this.attempts = clamp(settings.attempts ?? 10, 1, Infinity)
-    this.decorator = "attack" // express request decorator
+    this.decorator = "violation" // express request decorator name
     return this.defend
 }
 
 
 const middleware = async function(request, response, next) {
+    assert(
+        type({nil: request[this.decorator]}),
+        "Request decorator already occupied!"
+    )
+
+    let violation = request[this.decorator] = { // add a new express request decorator
+        intent: "GOOD" // have faith in humanity... xD
+    }
+
     try {
         assert(
             this.db instanceof HarperDB
@@ -70,99 +79,88 @@ const middleware = async function(request, response, next) {
             }),
             "Missing configuration!"
         )
-        assert(
-            type({nil: request[this.decorator]}),
-            "Request decorator already occupied!"
-        )
         for(const [name, attack] of this.attacks.entries()) {
             const patterns = attack.match(request.originalUrl)
             if(patterns.length > 0) {
-                request[this.decorator] = { // express request decorator
-                    name: name,
-                    patterns: patterns.map(regex => regex.toString())
-                }
-                response.status(403) // Access Forbidden
+                violation.name = name
+                violation.patterns = patterns.map(regex => regex.toString())
+                violation.intent = "EVIL" // ...sometimes they will still disappoint you
+                response.status(403) // well, then cut the ropes! (403 Access Forbidden)
                 break
             }
         }
     } catch(error) {
-        response.status(500) // Internal Server Error
+        response.status(500) // 500 Internal Server Error
         return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
     }
+
     try {
+        // TODO keep footprint low when exchanging data with the database! (For example: 'Select' only ip and attempts! 'Insert' only id, attempts, requests and attacks - merge existing requests and attacks via SQL + JSONata queries at HarperDB!)
+
         let suspects = await this.db.select({ip: request.ip})
-        const evil = !type({nil: request[this.decorator]})
+        
+        assert(
+            suspects.length < 2,
+            `Database '${this.db.schema + "." + this.db.table}' must not contain more than 1 entry for the same client! (Found ${suspects.length} records for IP ${request.ip}! Please resolve merge conflicts in database table '${this.db.table}'.)`
+        )
 
-        if(suspects.length > 1) {
-            // Merge duplicate records of the same client...
-            // NOTE: Normally, there's only one single record inside the blacklist, but we are prepared to handle duplicate records too!
-            suspects = {
-                ip: request.ip,
-                attempts: suspects
-                    .map(entry => entry.attempts || 0)
-                    .reduce((sum, count) => sum + count, 0),
-                requests: suspects
-                    .map(entry => entry.requests) // array of objects
-                    .flat(1),
-                attacks: suspects
-                    .map(entry => entry.attacks) // array of regex patterns
-                    .flat(1)
-            }
+        const observed = suspects.length > 0 // low severity
+        const blacklisted = observed && suspects[0].attempts >= this.attempts // hight severity
+
+        if(violation.intent === "GOOD" && !blacklisted) {
+            violation.attempts = observed ? suspects[0].attempts : 0 // show all previously recorded attempts
+            return next()
         }
 
-        if(suspects.length === 0 && evil) {
-            suspects.push({ // prepare new entry for the database
-                ip: request.ip,
-                attempts: 0,
-                requests: [],
-                attacks: []
-            })
-        }
+        // NOTE: From here, the client has either a BAD intent or has already been blacklisted!
 
-        if(suspects.length === 1) {
-            let client = suspects[0]
-            client.attempts++ // TODO consider timing and if too frequent, then increase the count of attempts to blacklist faster
-            client.requests.push({ // TODO discard duplicates!
-                intent: (evil ? "bad" : "good").toUpperCase(),
-                method: request.method,
-                url: request.originalUrl,
-                headers: request.headers,
-                body: request.body,
-                timestamp: Date.now()
-            })
-            client.attacks.push( // TODO also without duplicates please!
-                request[this.decorator] // object with attack name and attack patterns that match the request.originalUrl
-            )
-            const transaction = await this.db.upsert(client)
+        if(!observed) suspects.push({ip: request.ip}) // add client to watchlist (prepare new db entry)
 
-            let notification = [
-                `Detected suspicious request from ${request.ip}, with ${client.requests[client.requests.length - 1].intent} intent.`,
-                `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`
-            ]
-            if(client.attempts >= this.attempts) {
-                notification.push(
-                    `Client IP ${request.ip} is a well-known blacklist candidate and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
-                )
-            } else if(client.attempts > 1) {
-                notification.push(
-                    `Client IP ${request.ip} a known suspect and has been blocked for the ${ordinalCount(client.attempts)} time.`
-                )
-                if(client.attempts > 0) {
-                    notification.push(
-                        `(${this.attempts - client.attempts} attempts left until client becomes blacklisted!)`
-                    )
-                }
-            }
+        let client = suspects[0]
+        if(type({nil: client.attempts})) client.attempts = 0
+        if(type({nil: client.attacks})) client.attacks = []
+        if(type({nil: client.requests})) client.requests = []
+
+        client.attempts++
+        client.attacks.push(violation) // object with attack name and attack patterns that match the request.originalUrl
+        client.requests.push({
+            intent: violation.intent,
+            method: request.method,
+            url: request.originalUrl,
+            headers: request.headers,
+            body: request.body,
+            timestamp: Date.now()
+        })
+        
+        const transaction = await this.db.upsert(client)
+
+        let notification = [
+            `Detected suspicious request from ${request.ip} with ${violation.intent} intent.`,
+            `Request to ${request.method.toUpperCase()} ${request.originalUrl} has been rejected!`
+        ]
+
+        if(client.attempts >= this.attempts) {
             notification.push(
-                `Database record ${transaction.upserted_hashes[0]} has been updated.`
+                `Client IP ${request.ip} is a well-known blacklist candidate and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
             )
-
-            return next(notification.join("\n"))
+        } else if(client.attempts > 1) {
+            notification.push(
+                `Client IP ${request.ip} is a known suspect and has been blocked ${client.attempts}x so far.`
+            )
+            if(client.attempts > 0) {
+                notification.push(
+                    `(${this.attempts - client.attempts} attempts left until client becomes blacklisted!)`
+                )
+            }
         }
+
+        if(observed) notification.push(`Database record ${transaction.upserted_hashes[0]} has been updated.`)
+        else notification.push(`Database record ${transaction.upserted_hashes[0]} has been created.`)
+
+        return next(notification.join("\n"))
+
     } catch(error) {
-        response.status(500) // Internal Server Error
+        response.status(500) // 500 Internal Server Error
         return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${request.originalUrl} because of: ${error.message}`)
     }
-    next()
 }
-
