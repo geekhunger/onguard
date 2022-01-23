@@ -1,6 +1,6 @@
 # Readme
 
-> **Important note:** This is a pre-release! I currently battle-test the code and (re)write this Readme. Please feel free to check this project out, play with it and add it to your watchlist! But please, do not use it in production just yet! (I'm working hard to finish it within the next couple days...)
+> **Important note:** This is a pre-release! I currently battle-test the code and (re)write parts of it. (Consider this Readme outdated for now.) Please feel free to check this project out, play with it and add it to your watchlist! But please, do not use it in production just yet! (I'm working hard to finish it within the next couple days...)
 
 
 
