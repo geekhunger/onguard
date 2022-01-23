@@ -33,16 +33,19 @@ collection.set("ReflectedXSS", new Attack([
 ]))
 
 collection.set("PathTraversal", new Attack([
+    "\\windows\\system32\\drivers\\etc\\hosts",
+    "Windows\\System32\\cmd.exe",
+    "Windows/System32/cmd.exe",
+    "Autodiscover.xml",
     "/wp-includes",
     "/node_modules",
+    "/cgi-bin",
+    "/bin/sh",
     "/etc/issue",
     "/etc/shadow",
     "/etc/hosts",
     "/etc/passwd",
     "c+dir+c:\\",
-    "\\windows\\system32\\drivers\\etc\\hosts",
-    "Windows\\System32\\cmd.exe",
-    "Windows/System32/cmd.exe",
     /\.+[\/\\]+/, // ./ | ..\\ | ./////\/\/ | ..//
     /[\/\\]{2,}/, // \\\ | //// | //
     /\.*%\d+[a-z]*\.*/i, // ..%00 | %2C. | ..%3fac
@@ -50,7 +53,7 @@ collection.set("PathTraversal", new Attack([
     /\/\.[\da-z\-_]+$/i, // /.env | /.hidden | /sitemap//.secret
     /\.aspx\?[a-z]+=/i,
     /\.well\-known\/.*\/?[a-z]+\.txt$/i,
-    /\w+.php/i, // config.inc.php | xmlrpc.php | index.php?filter= | PHP/eval-stdin.php
+    /\w+.php/i, // config.inc.php | xmlrpc.php | index.php?filter= | PHP/eval-stdin.php | wp-login.php
     /invoke[\-_]?fun|function|[\W]*call[\W]\w+/i, // invokefunction | &function=call_user_func_array
     /&?[a-z]+(\[\d*\])+=/i, // &vars[1][]=HelloThinkPHP21 | &vars[0]=md5
 ]))
