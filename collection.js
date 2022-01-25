@@ -40,12 +40,14 @@ collection.set("PathTraversal", new Attack([
     "/wp-includes",
     "/node_modules",
     "/cgi-bin",
+    "/var/opt",
     "/bin/sh",
     "/etc/issue",
     "/etc/shadow",
     "/etc/hosts",
     "/etc/passwd",
     "c+dir+c:\\",
+    "?XDEBUG_SESSION_START=phpstorm",
     /\.+[\/\\]+/, // ./ | ..\\ | ./////\/\/ | ..//
     /[\/\\]{2,}/, // \\\ | //// | //
     /\.*%\d+[a-z]*\.*/i, // ..%00 | %2C. | ..%3fac
