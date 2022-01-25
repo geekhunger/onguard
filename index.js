@@ -1,6 +1,5 @@
 const {HarperDB} = require("node-harperdb")
 const {check: type, assert} = require("type-approve")
-const fullurl = req => req.protocol + '://' + req.headers.host + req.originalUrl
 
 
 const clamp = function(value, min = 0, max = 1) {
@@ -21,11 +20,11 @@ const ordinalCount = function(i) { // 1st, 2nd, 3rd, 4th...
     return i + "th"
 }
 
-
 module.exports = settings => config.call(module.exports, settings)
 module.exports.defend = (...params) => middleware.apply(module.exports, params)
 module.exports.attacks = require("./collection")
 module.exports.Pattern = require("./attack")
+
 
 
 const config = function(settings) {
@@ -60,19 +59,17 @@ const config = function(settings) {
 }
 
 
+
 const middleware = async function(request, response, next) {
-    assert(
-        type({nil: request[this.decorator]}),
-        "Request decorator already occupied!"
-    )
-
-    const complete_url = fullurl(request)
-
-    let violation = request[this.decorator] = { // add a new express request decorator
-        intent: "GOOD" // have faith in humanity... xD
-    }
+    const complete_url = request.protocol + '://' + request.headers.host + request.originalUrl
+    let violation = {intent: "GOOD"} // have faith in humanity... xD
 
     try {
+        assert(
+            type({nil: request[this.decorator]}),
+            "Request decorator already occupied!"
+        )
+
         assert(
             this.db instanceof HarperDB
             && type({
@@ -81,25 +78,29 @@ const middleware = async function(request, response, next) {
             }),
             "Missing configuration!"
         )
+
+        request[this.decorator] = violation // add a new express request decorator
+
         for(const [name, attack] of this.attacks.entries()) {
             const patterns = attack.match(complete_url)
             if(patterns.length > 0) {
                 violation.name = name
                 violation.patterns = patterns.map(regex => regex.toString())
-                violation.intent = "EVIL" // ...sometimes they will still disappoint you
+                violation.intent = "EVIL" // ...sometimes humanity will still disappoint you.
                 response.status(403) // well, then cut the ropes! (403 Access Forbidden)
                 break
             }
         }
     } catch(error) {
-        response.status(500) // 500 Internal Server Error
-        return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
+        //response.status(500) // 500 Internal Server Error
+        //return next(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
+
+        console.warn(`Couldn't verify the intent of the request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
+        return next()
     }
 
     try {
-        // TODO keep footprint low when exchanging data with the database! (For example: 'Select' only ip and attempts! 'Insert' only id, attempts, requests and attacks - merge existing requests and attacks via SQL + JSONata queries at HarperDB!)
-
-        let suspects = await this.db.select({ip: request.ip})
+        let suspects = await this.db.select({ip: request.ip}, this.attempts)
         
         assert(
             suspects.length < 2,
@@ -163,6 +164,6 @@ const middleware = async function(request, response, next) {
 
     } catch(error) {
         response.status(500) // 500 Internal Server Error
-        return next(`Failed processing a suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
+        return next(`Failed processing suspicious request from ${request.ip} to ${request.method.toUpperCase()} ${complete_url} because of: ${error.message}`)
     }
 }
