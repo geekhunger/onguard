@@ -1,6 +1,6 @@
 {
     "private": false,
-    "version": "0.5.0",
+    "version": "0.5.1",
     "name": "onguard",
     "description": "RegExp attack-defense & IP-blacklisting for ExpressJS and HarperDB",
     "author": "geekhunger <hallo@geekhunger.de>",
