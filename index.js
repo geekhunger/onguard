@@ -10,6 +10,14 @@ const trimDecimals = function(number, length) {
     return number.toString().match(expression)[0]
 }
 
+const parseInfinity = function(value) {
+    switch(value.toString().toLowerCase()) {
+        case "infinity": return Infinity
+        case "-infinity": return -Infinity
+        default: return value
+    }
+}
+
 module.exports = settings => config.call(module.exports, settings)
 module.exports.defend = (...params) => {
     if(!(module.exports.db instanceof HarperDB)) {
@@ -103,7 +111,7 @@ const middleware = async function(request, response, next) {
 
         const observed = watchlist.length > 0 // client is being observed (low severity)
         const attempts = watchlist
-            .map(req => req.attempts)
+            .map(req => parseInfinity(req.attempts))
             .reduce((sum, count) => sum + count, 0)
         const blacklisted = attempts >= this.attempts // attacker being observed (hight severity)
 
