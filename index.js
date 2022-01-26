@@ -100,65 +100,60 @@ const middleware = async function(request, response, next) {
     }
 
     try {
-        let suspects = await this.db.select({ip: request.ip}, this.attempts)
+        const watchlist = await this.db.run(`
+            select count(${this.db.primary_key}) as attempts
+            from ${this.db.schema}.${this.db.table}
+            where ip = '${request.ip}'
+        `).catch(() => []) // siliently catch errors and return an empty array!
         
         assert(
-            suspects.length < 2,
-            `Database '${this.db.schema + "." + this.db.table}' must not contain more than 1 entry for the same client! (Found ${suspects.length} records for IP ${request.ip}! Please resolve merge conflicts in database table '${this.db.table}'.)`
+            watchlist.length <= 1,
+            `Database '${this.db.schema + "." + this.db.table}' must not contain more than 1 entry for the same client! (Found ${watchlist.length} records for IP ${request.ip}! Please resolve merge conflicts in database table '${this.db.table}'.)`
         )
 
-        const observed = suspects.length > 0 // low severity
-        const blacklisted = observed && suspects[0].attempts >= this.attempts // hight severity
+        const observed = watchlist.length > 0 // client is being observed (low severity)
+        const attempts = observed ? watchlist[0].attempts : 0
+        const blacklisted = attempts >= this.attempts // attacker being observed (hight severity)
 
         if(violation.intent === "GOOD" && !blacklisted) {
-            violation.attempts = observed ? suspects[0].attempts : 0 // show all previously recorded attempts
+            violation.attempts = attempts // show all previously/current recorded violations
             return next()
         }
 
         // NOTE: From here, the client has either a BAD intent or has already been blacklisted!
 
-        if(!observed) suspects.push({ip: request.ip}) // add client to watchlist (prepare new db entry)
-
-        let client = suspects[0]
-        if(type({nil: client.attempts})) client.attempts = 0
-        if(type({nil: client.attacks})) client.attacks = []
-        if(type({nil: client.requests})) client.requests = []
-
-        client.attempts++
-        client.attacks.push(violation) // object with attack name and attack patterns that match the request.originalUrl
-        client.requests.push({
+        const receipt = await this.db.upsert({
+            ip: request.ip,
             intent: violation.intent,
             method: request.method,
             url: complete_url,
+            violations: violation.patterns, // object with attack name and attack patterns that match the request.originalUrl
             headers: request.headers,
-            body: request.body,
-            timestamp: Date.now()
+            payload: request.body
         })
-        
-        const transaction = await this.db.upsert(client)
 
         let notification = [
             `Detected suspicious request from ${request.ip} with ${violation.intent} intent.`,
             `Request to ${request.method.toUpperCase()} ${complete_url} has been rejected!`
         ]
 
-        if(client.attempts >= this.attempts) {
+        if(blacklisted) {
             notification.push(
-                `Client IP ${request.ip} is a well-known blacklist candidate and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(client.attempts / this.attempts, 1)}x.`
+                `Client IP ${request.ip} is a well-known blacklist candidate and has already exceeded the blacklisting quota limits (max attempts: ${this.attempts}) by a factor of ${trimDecimals(attempts / this.attempts, 1)}x.`
             )
-        } else if(client.attempts > 1) {
+        } else if(attempts > 1) {
             notification.push(
-                `Client IP ${request.ip} is a known suspect and has been blocked ${client.attempts}x so far.`
+                `Client IP ${request.ip} is a known suspect and has been blocked ${attempts}x so far.`
             )
-            if(client.attempts > 0) {
+            if(observed) {
                 notification.push(
-                    `(${this.attempts - client.attempts} attempts left until client becomes blacklisted!)`
+                    `(${this.attempts - attempts} attempts left until client becomes blacklisted!)`
                 )
             }
         }
 
-        if(observed) notification.push(`Database record ${transaction.upserted_hashes[0]} has been updated.`)
-        else notification.push(`Database record ${transaction.upserted_hashes[0]} has been created.`)
+        if(observed) notification.push(`Database record ${receipt.upserted_hashes.join(", ")} has been updated.`)
+        else notification.push(`Database record ${receipt.upserted_hashes.join(", ")} has been created.`)
 
         return next(notification.join("\n"))
 
