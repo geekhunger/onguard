@@ -205,33 +205,111 @@ To sum it up: Good requests go through normally. Bad requests throw an error and
 
 
 
-<h2 id="blacklist-client">Blacklist clients (IP 🍒cherry-picking)</h2>
+<h2 id="blacklist-client">Blacklist/Whitelist clients (IP 🍒cherry-picking)</h2>
 
-You've learned how to use 'unguard' in *novice mode*. Now, let's UP the game a little bit more!
+You've learned how to use 'unguard' in *novice mode*.^^ Now, let's UP the game a little bit more!
 
-In novice mode, 'onguard' will automatically validate all incomming HTTP requests and validate them based on some regex rulesets (that we will cover in the next section). 'onguard' will track any suspicious client and monitor its requests over time. As soon as the client exceeds the threshold of evil requests that you've set in your defend settings, that client will automatically become **blacklisted** and will never again be able to make requests without being rejected by 'onguard'. - Even if his requests aren't "evil" anymore! The client is simply **blacklisted** and that's it then.
+In novice mode, 'onguard' will automatically validate all incomming HTTP requests and validate them based on some regex rulesets (we will cover them in the next section). 'onguard' will track any suspicious clients and monitor their requests over time. As soon as a client exceeds the threshold of evil requests that he can make (which you define in settings discussed above), that client will automatically become **blacklisted** and will never again be able to make requests without being rejected by 'onguard'. - Even if his subsequent requests aren't "evil" anymore! The client is simply **blacklisted** and that's it then.
 
-If you want to whitelist that client for some reason, then you would need to remove all the records with his IP address from your database. This makes 'onguard' forget that evil client.
+### Whitelisting
 
-There are also times when you want to help 'onguard' a little bit. Let's say you have an IP that you see in your logs, which is frequently passing your 'onguard' defense middleware. But you can certainly tell that this IP belongs to a spammer, bot or an attackers and you want to block that client.
+If you want to *whitelist an already blacklisted* client, then you need to remove all of the records about that client inside of your database! This makes 'onguard' forget that client and his history of "evil" habbits.😅
 
-To blacklist an IP once and forever, go to your [HarperDB Studio Instance](https://studio.harperdb.io). Once there, pick the correct table and add your entries manually. You will need to provide an object with an `ip: "192.168.0.0"` (as string) and an `attempts: 1000` (as integer count). **Attemps should be an integer that is larger than the max. `attempts` count that you've configured for your 'onguard' defense middleware!** You can simply set it to some absurd number, like 1k or something.
+If you want a client to be **whitelisted forever**, then add a new record to [your database](https://studio.harperdb.io). Set the `ip` attribute to the client's IP address and set the `attempts` counter to `"-Infinity"`! (Your are giving that client a limitless *negative* balance of bad attempts, effectively. So, no matter how many good or evil request this client does, he will never exhaust his infinite balance and therefore can never be blacklisted for exeeding the `attempts` threshold that you've defined in your settings.)
+
+### Blacklisting
+
+There are also times when you want to help 'onguard' a little bit. Let's say you have an IP that you frequently see in your logs, which is always passing your 'onguard' defense. But you can certainly tell that this IP belongs to a spammer, bot or an attackers and you want to block that client...
+
+To **blacklist an IP once and forever**, go to your [HarperDB Studio Instance](https://studio.harperdb.io) and create a new record. Set `ip` to the IP address of the client you want to blacklist and set `attampts` counter to an integer that is **larger than the max. `attempts` count that you've configured for your 'onguard' defense middleware!** You can use the same trick as with whitelisting and set it to `"Infinity"`!
+
+Here's an example... 
 
 <p align="center">
     <img src="img/harperdb-new-record-button.jpg">
     <img src="img/harperdb-new-record-entry.jpg">
 </p>
 
-Now, that client will be considered 'blacklisted' because according to the database records for that IP, the client already had 1k tries to attack you, which is way above the theshold you've set in the config settings. As a result that client will be rejected even if his current request is valid (not evil)! (Blacklisted IP's don't have a chance of passing anymore!)
+My settings for 'onguard' were left at default `10` attempts. So, added a new client record with attempts count of `11` and that's it. Now, that client will be considered 'blacklisted'. As a result that client will be rejected forever, even if his request become valid (not evil)! (Blacklisted IP's don't have a chance of passing 'onguard' anymore - until you explicitly whitelist them or erase their history from your database!)
 
 
 
 
-<h2 id="suspicious-requests">Teach 'onguard' some new tricks!😏</h2>
+<h2 id="suspicious-requests">Teach 'onguard' some new tricks! 👶</h2>
 
-TODO
+While requiring the 'onguard' package in your app, you can also have access to `attacks` (a JS Map object) and to `Pattern` (a JS class object)!
 
-    - What does 'onguard' understand as <i>attacks</i>?
-    - How do they work internally?
-    - How do you define your own attack (RegExp `Pattern` rule)?
-    - How do you override the `attacks` preset? (What about clearing all?)
+Here are examples. (You can use either one. Both ways are valid.)
+
+```js
+let {attacks, Pattern, defend} = require("onguard")
+
+app.use(defend({...})) // this would have been how you'd have created the onguard middleware...
+```
+
+```js
+const onguard = require("onguard")
+let {attacks, Pattern} = onguard
+
+app.use(onguard({...})) // this would have been how you'd have created the onguard middleware...
+```
+
+Anyways, the `Pattern` class is what allows you to define your own RegExp pattern for 'onguard'.
+
+`attacks` on the other hand, contain already predefined RegExp patterns! Attacks are basically grouped collections of Regex Patterns. 'Onguard' applies these patterns then onto the `request.originalUrl` path and if one of the patterns in `attacks` matches the requested URL, then it is considered to be an "evil" request!
+
+For example: If a client tries to request `/.well-known/secret.txt`, 'ongurd' will reject it, because there are two `Pattern` in `attacks` that match this URL und cause a validation conflict:
+
+```js
+/\/\.[\da-z\-_]+$/i
+/\.well\-known\/.*\/?[a-z]+\.txt$/i
+```
+
+- The first Regex basically forbids asking for Dotfiles on your server.
+- The second Regex was specifically made to disallow sniffing inside the Certbot challenge directory which you might use for your SSL certificates at Let's Encrypt.
+
+Um, now you know the backstory, it's time to create your own rules! ("One Pattern to rule them all!" As they say it.)
+
+
+
+### Making your own rules! 😏
+
+First of all, let's see what 'onguard' already offers, by printing out the `attacks` Map with `console.log(attacks)`.
+
+You will see that out-of-the-box you will have some protection against `SQLInjection`, `ReflectedXSS` and `PathTraversal`! [(You can also find them here.)](https://github.com/geekhunger/onguard/blob/main/collection.js) This is nice, isn't it?
+
+Now lets append two new rules to the `PathTraversal` collection:
+
+```js
+attacks.PathTraversal.add([
+    "/foo/bar",
+    /\/foobar\/bar|baz$/i
+])
+```
+
+- With the first rule, requests that contain `/foo/bar` in the request URL will be rejected by 'onguard'.
+- The second rule will reject all requests to URL's that end with `/foobar/bar`, `foobar/bar`, `/foobar/baz`, `foobar/baz`. (Note: If there's a search query like `?name=geekhunger&role=admin` then it will be part of the URL and our rule would not match anymore, because we look onto the ending of the URL and query strings always come last on a URL! That's how the web works.)
+
+#### Want to publish your rule within a new collection?
+
+Examples:
+
+```js
+attacks.set("NewCollectionName", new Pattern("/literal/rule")
+attacks.set("NewCollectionName", new Pattern(/regex\/rule/i)
+attacks.set("NewCollectionName", new Pattern([
+    // many rules in one go...
+]))
+```
+
+#### Want to clear the whole collection of rules?
+
+Example: `attacks.SQLInjection.clear()`
+
+#### Want to clear the entire presets and start fresh?
+
+Example: `attacks.clear()`
+
+(All JavaScript methods supported for a `Map`, are valid on the `attack` variable.)
+
+
