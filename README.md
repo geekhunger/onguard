@@ -20,7 +20,7 @@
 
 
 
-## Setup your defense
+## Setup your defense 🦹‍♂️
 
 The `require("onguard")` statement returns a function which you must call with a `settings` object. The configuration function will then return an express middleware handler, which you plug into your application (router middleware chain).
 
@@ -43,7 +43,7 @@ app.use(require("onguard")({ // `app` is your express application or an express.
 
 > See [node-harperdb](https://www.npmjs.com/package/node-harperdb) for more information about the `harperdb: {}` config object (which is identical to this the constructor in the `HarperDB` class).
 
-**The above example is everything you need to use 'onguard' in your project!** But you can customize the settings even further, if you want. You can also extend the preset rules for validating reqests and detecting malicious attacks. This is done by literal path strings or regex expressions. We will explore this topic later.
+**The above example is everything you need to use 'onguard' in your project!✌️** - But you can customize the settings even further, if you want. You can also extend the preset rules for validating reqests and detecting malicious attacks. This is done by literal path strings or regex expressions. We will explore this topic later.
 
 You can also assign the configuration function from the `require` call to a variable and create your defense middleware later, if you prefer to do that.
 
@@ -110,7 +110,7 @@ If you are not sure, just go with the default (10) and see if it works for you o
 
 
 
-## How it all works...
+## 🤨 How it all works...
 
 Make sure to call your 'onguard' defense middleware *as early as possible* in your application middleware chain!
 
@@ -205,7 +205,7 @@ To sum it up: Good requests go through normally. Bad requests throw an error and
 
 
 
-<h2 id="blacklist-client">Blacklist clients (IP cherry-picking)</h2>
+<h2 id="blacklist-client">Blacklist clients (IP 🍒cherry-picking)</h2>
 
 You've learned how to use 'unguard' in *novice mode*. Now, let's UP the game a little bit more!
 
@@ -227,7 +227,7 @@ Now, that client will be considered 'blacklisted' because according to the datab
 
 
 
-<h2 id="suspicious-requests">Teach onguard some new tricks!</h2>
+<h2 id="suspicious-requests">Teach 'onguard' some new tricks!😏</h2>
 
 TODO
 
