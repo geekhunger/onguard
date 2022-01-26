@@ -1,8 +1,7 @@
+> **One word of warning:** I use this module for many of my personal projects and I therefore may introduce breaking changes in future updates. If you plan to use this package in production, you should better fork the Git repo and maintain it a copy yourself!
+
+
 # Readme
-
-> **Important note:** This is a pre-release! I currently battle-test the code and (re)write parts of it. (Consider this Readme outdated for now.) Please feel free to check this project out, play with it and add it to your watchlist! But please, do not use it in production just yet! (I'm working hard to finish it within the next couple days...)
-
-
 
 <h2 align="center">What? Why?</h2>
 
@@ -23,11 +22,11 @@
 
 ## Setup your defense
 
-The `require("onguard")` statement returns a function which you must call with a `settings` object. The configuration function will then return an express middleware handler, which you plug into your application or your app router.
+The `require("onguard")` statement returns a function which you must call with a `settings` object. The configuration function will then return an express middleware handler, which you plug into your application (router middleware chain).
 
-> There's actually more to it... Besides the config-function, the return value contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and expore it later in depth...](#suspicious-requests)
+> There's even more to it... Besides the config-function, the return value actually contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and expore it later in depth...](#suspicious-requests)
 
-Here's a snippet to get you started. Use it to add a middleware to your `express` app instance or your `express.Router`.
+The easiest way to get started, is to use it as a middleware function. Plug 'onguard' straight into your `express` app instance or your `express.Router` like so:
 
 ```js
 app.use(require("onguard")({ // `app` is your express application or an express.Router
@@ -40,11 +39,13 @@ app.use(require("onguard")({ // `app` is your express application or an express.
 }))
 ```
 
+`harperdb.schema` (alias a HarperDB namespace) defaults to `"onguard"` and the `harperdb.table` settings parameter defaults to `"watchlist"`. Both setting parameters are therefore optional!
+
 > See [node-harperdb](https://www.npmjs.com/package/node-harperdb) for more information about the `harperdb: {}` config object (which is identical to this the constructor in the `HarperDB` class).
 
-**The above example is everything you need to use 'onguard' in your project!** But you can customize the settings further, if you want. You can also extend the preset rules for validating a reqests, by literal- or regex expressions. (We will explore this topic later.)
+**The above example is everything you need to use 'onguard' in your project!** But you can customize the settings even further, if you want. You can also extend the preset rules for validating reqests and detecting malicious attacks. This is done by literal path strings or regex expressions. We will explore this topic later.
 
-You can also assign the configuration function from the `require` call to a variable and create your defense middleware later.
+You can also assign the configuration function from the `require` call to a variable and create your defense middleware later, if you prefer to do that.
 
 ```js
 const defend = require("onguard")
@@ -58,8 +59,7 @@ app.use(defend({
     
     // Adds a new ExpressJS Request decorator with custom name.
     // For example: request.evil = {name, patterns}
-    // Default value is "attack"
-    decorator: "evil",
+    decorator: "evil", // default decorator name is "violation"
 
     // An instanceof HarperDB of an object with HarperDB credentials (mandatory)
     harperdb: {
@@ -69,9 +69,7 @@ app.use(defend({
 }))
 ```
 
-**If you have configured HarperDB connection already** and want to use *that* connection object, then you can simply pass it directly to the `harperdb` property...
-
-> **But, be careful with that!** It will use the *currently connected database table, and will polute it* with entries of blacklisted client requests!
+**If you have configured a HarperDB connection already** and want to use *that* connection object, then you can simply pass its handle it directly to the `harperdb` property!
 
 ```js
 const {database} = require("node-harperdb")
@@ -99,54 +97,52 @@ app.use(defend({ // setup onguard and use it with current db connection
 }))
 ```
 
-<b id="attempts-count">Choose a reasonable number for the `attempts` count!</b>
+> **But, be careful with that!** It will use the *currently connected database table, and will polute it* with entries of blacklisted client requests!
 
-The default value is `10`. Keeping it at a low value, allows you to blacklist suspicious requests faster, but a low value could be too restrictive for some applications.
+<h3 id="attempts-count">Choose a reasonable number for the <code>attempts</code> count!</h3>
+
+The default value is `10`. Keeping it at a low value, allows you to blacklist suspicious requests faster, but a low value could be too restrictive for some applications!
 
 Keep in mind, that not every client should be blacklisted immideately for making malicious requests to your application, because the client could have picked-up a bad link somewhere on the internet by accident. Or, he could be a victim to a 'man-in-the-middle' attack himself. (Attacking request was made through this client, by an attacker that uses this client's machine to make bad requests to your app on his behalf.)
 
-You should set the `attempts` parameter to a value that . because client may just fallow a redirected link or picks it up by accident somewhere and you will blacklist him on first (unknown) attack!
+If you are not sure, just go with the default (10) and see if it works for you or if it blacklists clients foo fast. If it does, increase the count. (7 worked for me personally pretty good.)
 
 
 
 
+## How it all works...
 
-## How it works...
-
-Make sure to call the 'onguard' middleware *as early as possible* in your application middleware chain!
+Make sure to call your 'onguard' defense middleware *as early as possible* in your application middleware chain!
 
 When you now run your ExpressJS application, then each client request will flow through the 'onguard' middleware. 'onguard' will check the requesting client and the requested URL.
 
-- If it doesn't find anything "suspicious" about the request, then the request is passed onto the `next()` handler of your middleware chain. (As if 'onguard' wasn't there.)
+- If it *doesn't* find anything "suspicious" about the request, then the request is passed onto the `next()` handler of your middleware chain. (As if 'onguard' wasn't there.)
 - [If 'onguard' detects that the client is trying to attack or abuse your application](#suspicious-requests) by calling malicious URLs on your app, then it will mark this request as "evil"!
 
-> A request may also be *not* classified as "evil" but it could still come from an IP that has become conspicuous in the past (or is even already 'truly blacklisted').<br>
-> ([An IP becomes 'truly blacklisted' only after exeeding the quota limit](#attempts-count) of `attempts`, that you have defined during your configuration.)<br>
-> Anyways, blacklisted clients and evil requests will both be rejected by the 'onguard' middleware!
+> A request may also be classified as *not* "evil" but it could still come from an IP that has become conspicuous in the past (or is even already blacklisted for exceeding the maximal `attempts` that you've set in your config settings).<br>
+> (Clients that make malicious requests will be observed over time. [Their IP becomes blacklisted only after they exeed the quota limit](#attempts-count) of `attempts`, that you have defined during your configuration.)<br>
+> Anyways, blacklisted clients and evil requests will both be rejected by the 'onguard' middleware! Everything else is permitted to pass.
 
-"Suspicious" requests will be tracked: The IP of the requesting client will be saved into the database (if it isn't yet), and related database entries gets updated (for example with a fresh attempts count).
+For "suspicious" requests, 'onguard' will provide a special express request decorator (whose name you can change by setting the `decorator` parameter in your config). For example:
 
-> For "suspicious" requests, there will be a special express request decorator (whose name you can change by setting the `decorator` parameter in your config). For example:
->
-> ```js
-> // somewhere AFTER the 'onguard' middleware...
-> app.use(function(request, response, next) {
->     console.log(request.attack)
->     // returns:
->     /*{
->         name: "ReflectedXSS",
->         patterns: [
->             "/node_modules"
->         ]
->     }*/
-> })
-> ```
+```js
+// somewhere AFTER the 'onguard' middleware...
+app.use(function(request, response, next) {
+    console.log(request.violation)
+    // returns:
+    /*{
+        intent: "EVIL",
+        name: "ReflectedXSS",
+        patterns: [
+            "/node_modules"
+        ]
+    }*/
+})
+```
 
-**An evil request *should* be rejected immideatelly!** - But 'onguard' doesn't just decide to quietly drop the request! *Instead,* it sets the `response.statusCode` to `403 Forbidden` and passes the request to your `next("Response rejected!")` error handler! - You decide how to respond!
+**An evil request *should* be rejected immideatelly!** - But 'onguard' doesn't just decide to drop the request! *Instead,* it sets the `response.statusCode` to `403 Forbidden` and passes the request to your `next("Response rejected!")` error handler! - **You decide how to respond** to the client! - **This behaviour gives you maximal control over the response!** (And this is also the most 'vanilla' way of handling exceptions in ExpressJS! No callback-hell anymore.)
 
-**This behaviour gives you maximal control over the response!** (And this is also the most 'vanilla' way of handling exceptions in ExpressJS! No callback-hell anymore.)
-
-You could create an error handler just after the 'onguard' middleware function, to specifically catch and handle "evil" client requests, rejected by 'onguard'... But you could also let the error hit your default `404 Not Found` error handler, if you want. (You know, that everyone should have a final error handler in their middleware chain, right? One last function that catches all the errors in your app and responds with a sane message to the client. [If you don't, then please, do yourself a favor and read this!](http://expressjs.com/en/guide/error-handling.html#the-default-error-handler))
+You could create an error handler just after the 'onguard' middleware function, to specifically catch and handle "evil" client requests, rejected by 'onguard'... But you could also let the error hit your default `404 Not Found` error handler, if you want. - (You already know, that everyone should have a final error handler in their middleware chain, right? It is the one last function, that catches all the errors in your app and responds with a sane message to the client. [If you don't, then please, do yourself a favor and read this!](http://expressjs.com/en/guide/error-handling.html#the-default-error-handler))
 
 ```js
 const {catfile} = require("fopsy") // NPM package
@@ -202,18 +198,40 @@ app.use(function(error, request, response, next) { // your default error handler
 app.listen()
 ```
 
-Well, that's about it! Good requests go through normally. Bad requests throw an error and will end up in one of your error handlers.
+One little reminder: You are dealing with express middleware here. Do not forget to respond or call `next` within your middlware handler functions. Otherwise your app will freeze when a request hits such a handler that is not releasing the request.
+
+To sum it up: Good requests go through normally. Bad requests throw an error and will end up in one of your error handlers. Well, that's about it!
 
 
 
 
-<h2 id="suspicious-requests">TODO</h2>
+<h2 id="blacklist-client">Blacklist clients (IP cherry-picking)</h2>
 
-*I'm working hard on testing code and writing the docs. Please, give me a moment to finish it...*
+You've learned how to use 'unguard' in *novice mode*. Now, let's UP the game a little bit more!
 
-- Suspicious requests:
+In novice mode, 'onguard' will automatically validate all incomming HTTP requests and validate them based on some regex rulesets (that we will cover in the next section). 'onguard' will track any suspicious client and monitor its requests over time. As soon as the client exceeds the threshold of evil requests that you've set in your defend settings, that client will automatically become **blacklisted** and will never again be able to make requests without being rejected by 'onguard'. - Even if his requests aren't "evil" anymore! The client is simply **blacklisted** and that's it then.
+
+If you want to whitelist that client for some reason, then you would need to remove all the records with his IP address from your database. This makes 'onguard' forget that evil client.
+
+There are also times when you want to help 'onguard' a little bit. Let's say you have an IP that you see in your logs, which is frequently passing your 'onguard' defense middleware. But you can certainly tell that this IP belongs to a spammer, bot or an attackers and you want to block that client.
+
+To blacklist an IP once and forever, go to your [HarperDB Studio Instance](https://studio.harperdb.io). Once there, pick the correct table and add your entries manually. You will need to provide an object with an `ip: "192.168.0.0"` (as string) and an `attempts: 1000` (as integer count). **Attemps should be an integer that is larger than the max. `attempts` count that you've configured for your 'onguard' defense middleware!** You can simply set it to some absurd number, like 1k or something.
+
+<p align="center">
+    <img src="img/harperdb-new-record-button.jpg">
+    <img src="img/harperdb-new-record-entry.jpg">
+</p>
+
+Now, that client will be considered 'blacklisted' because according to the database records for that IP, the client already had 1k tries to attack you, which is way above the theshold you've set in the config settings. As a result that client will be rejected even if his current request is valid (not evil)! (Blacklisted IP's don't have a chance of passing anymore!)
+
+
+
+
+<h2 id="suspicious-requests">Teach onguard some new tricks!</h2>
+
+TODO
+
     - What does 'onguard' understand as <i>attacks</i>?
     - How do they work internally?
     - How do you define your own attack (RegExp `Pattern` rule)?
     - How do you override the `attacks` preset? (What about clearing all?)
-- How to add IP to blacklist manually?
