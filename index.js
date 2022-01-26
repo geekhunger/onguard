@@ -11,7 +11,12 @@ const trimDecimals = function(number, length) {
 }
 
 module.exports = settings => config.call(module.exports, settings)
-module.exports.defend = (...params) => middleware.apply(module.exports, params)
+module.exports.defend = (...params) => {
+    if(!(module.exports.db instanceof HarperDB)) {
+        return config.apply(module.exports, params)
+    }
+    return middleware.apply(module.exports, params)
+}
 module.exports.attacks = require("./collection")
 module.exports.Pattern = require("./attack")
 
