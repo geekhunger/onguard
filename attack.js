@@ -7,11 +7,14 @@ module.exports = class Attack {
         return this
     }
 
+    clear() {
+        this.patterns = []
+    }
+
     add(patterns) {
         assert(type({string: patterns}, {expression: patterns}, {array: patterns}), "Invalid patterns!")
-        if(!type({array: patterns})) patterns = [patterns]
-        if(!type({array: this.patterns})) this.patterns = []
-        for(const pattern of patterns) {
+        if(!type({array: this.patterns})) this.clear()
+        for(const pattern of type({array: patterns}) ? patterns : [patterns]) {
             assert(type({string: pattern}, {expression: pattern}), `Malformed pattern: ${pattern}`)
             if(type({string: pattern})) {
                 this.patterns.push(new RegExp(pattern.replace(/\W/g, "\\$&"), "i"))
