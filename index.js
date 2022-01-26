@@ -91,18 +91,15 @@ const middleware = async function(request, response, next) {
 
     try {
         const watchlist = await this.db.run(`
-            select count(${this.db.primary_key}) as attempts
+            select attempts
             from ${this.db.schema}.${this.db.table}
             where ip = '${request.ip}'
         `).catch(() => []) // siliently catch errors and return an empty array!
-        
-        assert(
-            watchlist.length <= 1,
-            `Database '${this.db.schema + "." + this.db.table}' must not contain more than 1 entry for the same client! (Found ${watchlist.length} records for IP ${request.ip}! Please resolve merge conflicts in database table '${this.db.table}'.)`
-        )
 
         const observed = watchlist.length > 0 // client is being observed (low severity)
-        const attempts = observed ? watchlist[0].attempts : 0
+        const attempts = watchlist
+            .map(req => req.attempts)
+            .reduce((sum, count) => sum + count, 0)
         const blacklisted = attempts >= this.attempts // attacker being observed (hight severity)
 
         if(violation.intent === "GOOD" && !blacklisted) {
@@ -118,6 +115,7 @@ const middleware = async function(request, response, next) {
             method: request.method,
             url: complete_url,
             violations: violation.patterns, // object with attack name and attack patterns that match the request.originalUrl
+            attempts: 1, // NOTE: Every request happens only ones! But in case you want to blacklist an IP manually, you can set this to larger than this.attempts in your database and the client will be blocked every time.
             headers: request.headers,
             payload: request.body
         })
