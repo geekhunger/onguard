@@ -36,7 +36,6 @@ collection.set("PathTraversal", new Attack([
     "\\windows\\system32\\drivers\\etc\\hosts",
     "Windows\\System32\\cmd.exe",
     "Windows/System32/cmd.exe",
-    "Autodiscover.xml",
     "/wp-includes",
     "/node_modules",
     "/cgi-bin",
@@ -47,15 +46,19 @@ collection.set("PathTraversal", new Attack([
     "/etc/hosts",
     "/etc/passwd",
     "c+dir+c:\\",
+    "/stalker_portal",
+    "microsoft.exchange.ediscovery.exporttool.application",
+    "Autodiscover.xml",
     "?XDEBUG_SESSION_START=phpstorm",
     /\.+[\/\\]+/, // ./ | ..\\ | ./////\/\/ | ..//
     /[\/\\]{2,}/, // \\\ | //// | //
     /\.*%\d+[a-z]*\.*/i, // ..%00 | %2C. | ..%3fac
     /%+[a-z]%+/i, // %unfeudalize%
-    /\/\.[\da-z\-_]+$/i, // /.env | /.hidden | /sitemap//.secret
+    /\w+.php/i, // config.inc.php | xmlrpc.php | index.php?filter= | PHP/eval-stdin.php | wp-login.php
+    /\/owa\/auth\/\w+\.(js|aspx)/i, // /owa/logon/x.js
     /\.aspx\?[a-z]+=/i,
     /\.well\-known\/.*\/?[a-z]+\.txt$/i,
-    /\w+.php/i, // config.inc.php | xmlrpc.php | index.php?filter= | PHP/eval-stdin.php | wp-login.php
+    /\/\.[\da-z\-_]+$/i, // /.env | /.hidden | /sitemap//.secret
     /invoke[\-_]?fun|function|[\W]*call[\W]\w+/i, // invokefunction | &function=call_user_func_array
     /&?[a-z]+(\[\d*\])+=/i, // &vars[1][]=HelloThinkPHP21 | &vars[0]=md5
 ]))
