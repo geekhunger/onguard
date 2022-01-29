@@ -93,6 +93,7 @@ db.table = "blacklisted-requests" // change the table name of current db connect
 
 app.use(defend({ // setup onguard and use it with current db connection
     attempts: 5,
+    status: 403,
     harperdb: db
 }))
 ```
@@ -107,6 +108,25 @@ Keep in mind, that not every client should be blacklisted immideately for making
 
 If you are not sure, just go with the default (10) and see if it works for you or if it blacklists clients foo fast. If it does, increase the count. (7 worked for me personally pretty good.)
 
+
+
+### Settings that you can customize:
+
+Here's is a demo settings object for your defense with all of the parameters and their default values.
+
+```js
+{
+    harperdb: {
+        instance: undefined,
+        auth: undefined,
+        schema: "onguard",
+        table: "watchlist"
+    },
+    attempts: 10,
+    status: 403,
+    decorator: "violation"
+}
+```
 
 
 
