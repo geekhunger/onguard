@@ -56,6 +56,7 @@ const config = function(settings) {
             settings.harperdb.table ?? "watchlist"
         )
     }
+    this.status = type({number: settings.status}) ? settings.status : 403 // 403 Access Forbidden
     this.attempts = clamp(settings.attempts ?? 10, 1, Infinity)
     this.decorator = "violation" // express request decorator name
     return this.defend
@@ -90,7 +91,7 @@ const middleware = async function(request, response, next) {
                 violation.name = name
                 violation.patterns = patterns.map(regex => regex.toString())
                 violation.intent = "EVIL" // ...sometimes humanity will still disappoint you.
-                response.status(403) // well, then cut the ropes! (403 Access Forbidden)
+                response.status(this.status) // well, then cut the ropes!
                 break
             }
         }
@@ -121,6 +122,7 @@ const middleware = async function(request, response, next) {
         }
 
         // NOTE: From here, the client has either a BAD intent or has already been blacklisted!
+        response.status(this.status) // good becomes evil when blacklisted
 
         const receipt = await this.db.upsert({
             ip: request.ip,
