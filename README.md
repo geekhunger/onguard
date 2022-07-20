@@ -24,7 +24,7 @@
 
 The `require("onguard")` statement returns a function which you must call with a `settings` object. The configuration function will then return an express middleware handler, which you plug into your application (router middleware chain).
 
-> There's even more to it... Besides the config-function, the return value actually contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and expore it later in depth...](#suspicious-requests)
+> There's even more to it... Besides the config-function, the return value actually contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and explore it later in depth...](#suspicious-requests)
 
 The easiest way to get started, is to use it as a middleware function. Plug 'onguard' straight into your `express` app instance or your `express.Router` like so:
 
