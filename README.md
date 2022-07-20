@@ -53,7 +53,7 @@ const defend = require("onguard")
 // ... do whatever ...
 
 app.use(defend({
-    // Value of 1 will block client ip immideatelly uppon first suspicious request!
+    // Value of 1 will block client ip immediately upon first suspicious request!
     // Default value is 10
     attempts: 3,
     
