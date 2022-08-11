@@ -34,7 +34,7 @@
         "gate keeper"
     ],
     "dependencies": {
-        "node-harperdb": "^0.7.6",
+        "node-harperdb": "^0.7.8",
         "type-approve": "^0.2.9"
     }
 }
