@@ -37,6 +37,7 @@ collection.set("PathTraversal", new Attack([
     "Windows\\System32\\cmd.exe",
     "Windows/System32/cmd.exe",
     "/wp-includes",
+    "/.git",
     "/node_modules",
     "/cgi-bin",
     "/var/opt",
