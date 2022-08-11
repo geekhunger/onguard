@@ -24,7 +24,7 @@
 
 The `require("onguard")` statement returns a function which you must call with a `settings` object. The configuration function will then return an express middleware handler, which you plug into your application (router middleware chain).
 
-> There's even more to it... Besides the config-function, the return value actually contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and expore it later in depth...](#suspicious-requests)
+> There's even more to it... Besides the config-function, the return value actually contains a `defend` method, an `attacks` Map and `Pattern` class. [But let's put it aside for now and explore it later in depth...](#suspicious-requests)
 
 The easiest way to get started, is to use it as a middleware function. Plug 'onguard' straight into your `express` app instance or your `express.Router` like so:
 
@@ -43,7 +43,7 @@ app.use(require("onguard")({ // `app` is your express application or an express.
 
 > See [node-harperdb](https://www.npmjs.com/package/node-harperdb) for more information about the `harperdb: {}` config object (which is identical to this the constructor in the `HarperDB` class).
 
-**The above example is everything you need to use 'onguard' in your project!✌️** - But you can customize the settings even further, if you want. You can also extend the preset rules for validating reqests and detecting malicious attacks. This is done by literal path strings or regex expressions. We will explore this topic later.
+**The above example is everything you need to use 'onguard' in your project!✌️** - But you can customize the settings even further, if you want. You can also extend the preset rules for validating requests and detecting malicious attacks. This is done by literal path strings or regex expressions. We will explore this topic later.
 
 You can also assign the configuration function from the `require` call to a variable and create your defense middleware later, if you prefer to do that.
 
@@ -53,7 +53,7 @@ const defend = require("onguard")
 // ... do whatever ...
 
 app.use(defend({
-    // Value of 1 will block client ip immideatelly uppon first suspicious request!
+    // Value of 1 will block client ip immediately upon first suspicious request!
     // Default value is 10
     attempts: 3,
     
@@ -104,7 +104,7 @@ app.use(defend({ // setup onguard and use it with current db connection
 
 The default value is `10`. Keeping it at a low value, allows you to blacklist suspicious requests faster, but a low value could be too restrictive for some applications!
 
-Keep in mind, that not every client should be blacklisted immideately for making malicious requests to your application, because the client could have picked-up a bad link somewhere on the internet by accident. Or, he could be a victim to a 'man-in-the-middle' attack himself. (Attacking request was made through this client, by an attacker that uses this client's machine to make bad requests to your app on his behalf.)
+Keep in mind, that not every client should be blacklisted immediately for making malicious requests to your application, because the client could have picked-up a bad link somewhere on the internet by accident. Or, he could be a victim to a 'man-in-the-middle' attack himself. (Attacking request was made through this client, by an attacker that uses this client's machine to make bad requests to your app on his behalf.)
 
 If you are not sure, just go with the default (10) and see if it works for you or if it blacklists clients foo fast. If it does, increase the count. (7 worked for me personally pretty good.)
 
@@ -140,7 +140,7 @@ When you now run your ExpressJS application, then each client request will flow 
 - [If 'onguard' detects that the client is trying to attack or abuse your application](#suspicious-requests) by calling malicious URLs on your app, then it will mark this request as "evil"!
 
 > A request may also be classified as *not* "evil" but it could still come from an IP that has become conspicuous in the past (or is even already blacklisted for exceeding the maximal `attempts` that you've set in your config settings).<br>
-> (Clients that make malicious requests will be observed over time. [Their IP becomes blacklisted only after they exeed the quota limit](#attempts-count) of `attempts`, that you have defined during your configuration.)<br>
+> (Clients that make malicious requests will be observed over time. [Their IP becomes blacklisted only after they exceed the quota limit](#attempts-count) of `attempts` that you have defined during your configuration.)<br>
 > Anyways, blacklisted clients and evil requests will both be rejected by the 'onguard' middleware! Everything else is permitted to pass.
 
 For "suspicious" requests, 'onguard' will provide a special express request decorator (whose name you can change by setting the `decorator` parameter in your config). For example:
@@ -160,7 +160,7 @@ app.use(function(request, response, next) {
 })
 ```
 
-**An evil request *should* be rejected immideatelly!** - But 'onguard' doesn't just decide to drop the request! *Instead,* it sets the `response.statusCode` to `403 Forbidden` and passes the request to your `next("Response rejected!")` error handler! - **You decide how to respond** to the client! - **This behaviour gives you maximal control over the response!** (And this is also the most 'vanilla' way of handling exceptions in ExpressJS! No callback-hell anymore.)
+**An evil request *should* be rejected immediately!** - But 'onguard' doesn't just decide to drop the request! *Instead,* it sets the `response.statusCode` to `403 Forbidden` and passes the request to your `next("Response rejected!")` error handler! - **You decide how to respond** to the client! - **This behaviour gives you maximal control over the response!** (And this is also the most 'vanilla' way of handling exceptions in ExpressJS! No callback-hell anymore.)
 
 You could create an error handler just after the 'onguard' middleware function, to specifically catch and handle "evil" client requests, rejected by 'onguard'... But you could also let the error hit your default `404 Not Found` error handler, if you want. - (You already know, that everyone should have a final error handler in their middleware chain, right? It is the one last function, that catches all the errors in your app and responds with a sane message to the client. [If you don't, then please, do yourself a favor and read this!](http://expressjs.com/en/guide/error-handling.html#the-default-error-handler))
 
