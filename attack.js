@@ -17,9 +17,9 @@ module.exports = class Attack {
         for(const pattern of type({array: patterns}) ? patterns : [patterns]) {
             assert(type({string: pattern}, {expression: pattern}), `Malformed pattern: ${pattern}`)
             if(type({string: pattern})) {
-                this.patterns.push(new RegExp(pattern.replace(/\W/g, "\\$&"), "i"))
+                this.patterns.push(new RegExp(pattern.replace(/\W/g, "\\$&"), "i")) // escape special chars inside pattern
             } else {
-                this.patterns.push(pattern) // Could pass pattern straight into RegExp without typechecking but then flags like "gi" could be overridden by the default and mandatory flag "i"!
+                this.patterns.push(pattern) // Pattern could be passed straight into `new RegExp()` without typechecking but then flags like "gi" could be overridden by the default and mandatory flag "i"!
             }
         }
         return this
