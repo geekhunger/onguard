@@ -1,3 +1,5 @@
+// NOTE: RegExp rules will remain untouched. String rules will be converted into valid RegExp and become case-insensitive automatically!
+
 const Attack = require("./attack")
 let collection = module.exports = new Map()
 
@@ -10,26 +12,21 @@ collection.set("SQLInjection", new Attack([
     "' or ''=''",
     "DROP TABLE",
     "INSERT INTO",
+    /SELECT [a-z0-9\s\*,"'] FROM/i,
 ]))
 
 collection.set("ReflectedXSS", new Attack([
     "<script",
     "\\x3cscript",
     "%3cscript",
-    "alert(",
-    "onclick=",
-    "onerror=",
-    "onkeydown=",
-    "onkeypress=",
-    "onkeyup=",
-    "onmouseout=",
-    "onmouseover=",
-    "onload=",
-    "document.cookie",
-    ".addeventlistener",
     "javascript:",
     "jav&#x0D;ascript:",
-    "java\0script",    
+    "java\0script",
+    "document.write",
+    /(alert|eval|function|settimeout|setinterval)\(/i,
+    /(onclick|onerror|onkeydown|onkeypress|onkeyup|onmouseout|onmouseover|onmouseout|onload)=/i,
+    ".addeventlistener",
+    "document.cookie",
 ]))
 
 collection.set("PathTraversal", new Attack([
@@ -39,6 +36,8 @@ collection.set("PathTraversal", new Attack([
     "/wp-includes",
     "/.git",
     "/node_modules",
+    "/dev/null",
+    "/dev/random",
     "/cgi-bin",
     "/var/opt",
     "/bin/sh",
